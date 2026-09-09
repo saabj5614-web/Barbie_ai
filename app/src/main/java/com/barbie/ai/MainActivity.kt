@@ -1,13 +1,11 @@
 package com.barbie.ai
 
-import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.media.projection.MediaProjectionManager
-import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.provider.Settings
@@ -58,7 +56,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         messages += store.load()
         buildUi()
         renderStoredMessages()
-        if (messages.isEmpty()) addAssistant("Assalam-o-alaikum! Main Barbie AI hoon. Aap normal zaban mein baat karein. Jo kaam karwana ho, seedha bata dein.")
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
@@ -200,7 +197,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         store.clear()
         chat.removeAllViews()
         status.text = if (backendUrl.isBlank()) "Ready" else "Online"
-        addAssistant("Nayi chat shuru ho gayi. Barbie ko batao kya karna hai.")
     }
 
     private fun settings() {
@@ -251,7 +247,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun sendToBackend(message: String, speakReply: Boolean) {
         addUser(message)
         if (backendUrl.isBlank()) {
-            addAssistant("Backend abhi connect nahi hai. Backend deploy hone ke baad natural chat aur phone actions available honge.")
+            addAssistant("Backend abhi connect nahi hai.")
             status.text = "Backend pending"
             return
         }
@@ -323,7 +319,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val spoken = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() ?: return
             sendToBackend(spoken, true)
         } else if ((requestCode == 22 || requestCode == 23) && resultCode == RESULT_OK) {
-            addAssistant("Attachment select ho gaya. Isay chat ke sath use karne ka backend flow baad mein connect kiya ja sakta hai.")
+            addAssistant("Attachment select ho gaya.")
         }
     }
 
