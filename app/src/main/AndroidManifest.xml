@@ -16,6 +16,12 @@
         </activity>
         <service android:name=".BarbieWakeService" android:exported="false" android:foregroundServiceType="microphone" />
         <service android:name=".BarbieScreenCoachService" android:exported="false" android:foregroundServiceType="mediaProjection" />
+        <service android:name=".BarbieActionService" android:exported="false" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/barbie_accessibility_service" />
+        </service>
         <service android:name=".BarbieNotificationService" android:label="Barbie AI Notifications" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
