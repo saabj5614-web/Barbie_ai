@@ -5,6 +5,8 @@ const PORT = Number(process.env.PORT || 8080);
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || '';
 const HF_TOKEN = process.env.HUGGINGFACE_TOKEN || '';
 const BACKEND_SECRET = process.env.BACKEND_SECRET || '';
+const GITHUB_OWNER = process.env.GITHUB_OWNER || '';
+const GITHUB_REPO = process.env.GITHUB_REPO || '';
 
 const system = `You are Barbie AI, a personal Android assistant. Reply in Roman Urdu by default. Do not use Hindi or Devanagari. If the user clearly speaks English, Urdu, Punjabi, Sindhi or another language, reply in that language, but never Hindi. Be concise. When the user asks for a phone action, explain what Android can do and do not claim an action happened unless the app confirms it.`;
 
@@ -30,17 +32,17 @@ async function chat(message) {
 
 function detectAction(message) {
   const x = message.toLowerCase();
-  if (x.includes('youtube')) return { type: 'youtube_search', query: message.replace(/youtube/ig, '').trim() };
-  if (x.includes('whatsapp')) return { type: 'whatsapp' };
-  if (x.includes('call') || x.includes('phone')) return { type: 'call' };
-  if (x.includes('file') || x.includes('document')) return { type: 'file_picker' };
+  if (x.includes('youtube') || x.includes('yt ')) return { type: 'youtube_search', query: message.replace(/youtube/ig, '').replace(/^yt\s*/i, '').trim() };
+  if (x.includes('whatsapp') || x.includes('whats app')) return { type: 'whatsapp' };
+  if (x.includes('call') || x.includes('phone') || x.includes('dial')) return { type: 'call' };
+  if (x.includes('file') || x.includes('document') || x.includes('folder')) return { type: 'file_picker' };
   if (x.includes('github') || x.includes('repo') || x.includes('code upload')) return { type: 'github' };
   return { type: 'chat' };
 }
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return json(res, 204, {});
-  if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true, name: 'Barbie AI', version: '2.1' });
+  if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true, name: 'Barbie AI', version: '2.2' });
   if (!authorized(req)) return json(res, 401, { error: 'unauthorized' });
   if (req.method !== 'POST') return json(res, 404, { error: 'not_found' });
 
@@ -55,7 +57,9 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { action: detectAction(message) });
       }
       if (req.url === '/api/github/file') {
-        const result = await githubWriteFile(data);
+        if (!GITHUB_OWNER || !GITHUB_REPO) return json(res, 503, { error: 'github_repo_not_configured' });
+        const safeData = { ...data, owner: GITHUB_OWNER, repo: GITHUB_REPO };
+        const result = await githubWriteFile(safeData);
         return json(res, 200, { ok: true, ...result });
       }
       if (req.url !== '/api/chat') return json(res, 404, { error: 'not_found' });
