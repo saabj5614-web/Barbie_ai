@@ -9,6 +9,9 @@ object BarbieCommandRouter {
         data class WhatsApp(val number: String, val message: String) : Action()
         data class Call(val number: String) : Action()
         data class WebSearch(val query: String) : Action()
+        data object Back : Action()
+        data object Home : Action()
+        data class ClickText(val text: String) : Action()
         data class Chat(val text: String) : Action()
     }
 
@@ -21,14 +24,9 @@ object BarbieCommandRouter {
             return YouTube(query.ifBlank { "" })
         }
 
-        if (lower.contains("whatsapp")) {
+        if (lower.contains("whatsapp") || lower.contains("whats app")) {
             val number = Regex("(?:\\+?\\d[\\d -]{7,})").find(raw)?.value?.filter { it.isDigit() }.orEmpty()
-            val message = raw
-                .replace(Regex("(?i)whatsapp"), "")
-                .replace(Regex("(?:\\+?\\d[\\d -]{7,})"), "")
-                .trim()
-                .removePrefix("ko")
-                .trim()
+            val message = raw.replace(Regex("(?i)whatsapp"), "").replace(Regex("(?:\\+?\\d[\\d -]{7,})"), "").trim().removePrefix("ko").trim()
             return WhatsApp(number, message)
         }
 
@@ -42,12 +40,15 @@ object BarbieCommandRouter {
             return WebSearch(query)
         }
 
+        if (lower == "back" || lower.contains("go back") || lower.contains("peeche jao")) return Back
+        if (lower == "home" || lower.contains("home jao") || lower.contains("ghar jao")) return Home
+
+        val click = Regex("(?i)^(click|tap|dabao)\\s+(.+)$").find(raw)
+        if (click != null) return ClickText(click.groupValues[2].trim())
+
         return Chat(raw)
     }
 
-    fun youtubeUri(query: String): Uri =
-        Uri.parse("https://www.youtube.com/results?search_query=${Uri.encode(query)}")
-
-    fun webSearchUri(query: String): Uri =
-        Uri.parse("https://www.google.com/search?q=${Uri.encode(query)}")
+    fun youtubeUri(query: String): Uri = Uri.parse("https://www.youtube.com/results?search_query=${Uri.encode(query)}")
+    fun webSearchUri(query: String): Uri = Uri.parse("https://www.google.com/search?q=${Uri.encode(query)}")
 }
