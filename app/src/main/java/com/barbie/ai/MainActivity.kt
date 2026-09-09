@@ -12,8 +12,10 @@ import android.os.Bundle
 import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.util.Base64
 import android.view.Gravity
 import android.widget.*
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -46,6 +48,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         root.addView(button("🎙 Barbie ko bolo") { listen() }, lp(.8f))
         root.addView(button("💗 Barbie Barbie — Wake Listener") { startWakeListener() }, lp(.8f))
         root.addView(button("👁 Screen Coach — Share Screen") { startScreenCoach() }, lp(.8f))
+        root.addView(button("🔎 Analyze Current Screen") { analyzeCurrentScreen() }, lp(.8f))
         root.addView(button("🖱 Barbie Action Access") { openAccessibilitySettings() }, lp(.8f))
         root.addView(button("🔔 Notifications Access") { openNotificationSettings() }, lp(.8f))
         root.addView(button("💬 WhatsApp Message") { openWhatsAppDialog() }, lp(.8f))
@@ -104,6 +107,31 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             runOnUiThread { answer.text = reply; status.text = "Barbie ready"; speak(reply) }
             c.disconnect()
         } catch (e: Exception) { runOnUiThread { status.text = "Backend connect nahi hua"; answer.text = e.message ?: "Connection error" } }
+    }
+
+    private fun analyzeCurrentScreen() {
+        if (backendUrl.isBlank()) { status.text = "Pehle Backend URL save karo"; return }
+        val file = File(cacheDir, "barbie_screen_latest.jpg")
+        if (!file.exists()) { status.text = "Pehle Screen Coach ON karo"; return }
+        status.text = "Screen analyze ho rahi hai..."
+        thread {
+            try {
+                val image = Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)
+                val prompt = "Is screen par kya nazar aa raha hai? Roman Urdu mein short jawab do. Agar next step poocha na gaya ho to sirf visible cheezen batao."
+                val safeImage = image.replace("\\", "\\\\").replace("\"", "\\\"")
+                val safePrompt = prompt.replace("\\", "\\\\").replace("\"", "\\\"")
+                val c = URL("$backendUrl/api/screen").openConnection() as HttpURLConnection
+                c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 15000; c.readTimeout = 60000; c.setRequestProperty("Content-Type", "application/json")
+                c.outputStream.use { it.write("{\"imageBase64\":\"$safeImage\",\"prompt\":\"$safePrompt\"}".toByteArray()) }
+                val body = c.inputStream.bufferedReader().use { it.readText() }
+                val match = Regex("\"reply\"\\s*:\\s*\"((?:\\\\.|[^\"])*)\"").find(body)
+                val reply = match?.groupValues?.get(1)?.replace("\\\"", "\"")?.replace("\\n", "\n") ?: body
+                runOnUiThread { answer.text = reply; status.text = "Screen Coach ready"; speak(reply) }
+                c.disconnect()
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "Screen analysis fail hui"; answer.text = e.message ?: "Screen error" }
+            }
+        }
     }
 
     private fun startWakeListener() { try { startForegroundService(Intent(this, BarbieWakeService::class.java)); status.text = "Wake Listener ON"; speak("Barbie Barbie listener on hai") } catch (_: Exception) { status.text = "Wake Listener start nahi hua" } }
