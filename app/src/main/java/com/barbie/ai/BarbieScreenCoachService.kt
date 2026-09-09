@@ -43,11 +43,17 @@ class BarbieScreenCoachService : Service() {
             val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
             try {
                 val plane = image.planes[0]
-                val bitmap = Bitmap.createBitmap(lastWidth, lastHeight, Bitmap.Config.ARGB_8888)
+                val pixelStride = plane.pixelStride
+                val rowStride = plane.rowStride
+                val rowPadding = rowStride - pixelStride * lastWidth
+                val paddedWidth = lastWidth + rowPadding / pixelStride
+                val bitmap = Bitmap.createBitmap(paddedWidth, lastHeight, Bitmap.Config.ARGB_8888)
                 bitmap.copyPixelsFromBuffer(plane.buffer)
+                val cropped = if (paddedWidth == lastWidth) bitmap else Bitmap.createBitmap(bitmap, 0, 0, lastWidth, lastHeight)
+                if (cropped !== bitmap) bitmap.recycle()
                 val file = File(cacheDir, "barbie_screen_latest.jpg")
-                FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 65, it) }
-                bitmap.recycle()
+                FileOutputStream(file).use { cropped.compress(Bitmap.CompressFormat.JPEG, 65, it) }
+                cropped.recycle()
             } finally {
                 image.close()
             }
