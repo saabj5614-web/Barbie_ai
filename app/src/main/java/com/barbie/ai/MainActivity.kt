@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.view.Gravity
@@ -41,7 +40,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val mic = button("🎙  Barbie ko bolo") { listen() }
         val wake = button("✨  Barbie Barbie — Wake Listener") { startWakeListener() }
         val notify = button("🔔  Notifications access") { openNotificationSettings() }
-        val whatsapp = button("💬  WhatsApp message") { openWhatsApp() }
+        val whatsapp = button("💬  WhatsApp message") { openWhatsAppDialog() }
         val call = button("📞  Call") { makeCall() }
         val files = button("📁  File manager") { openFiles() }
         val urlBox = EditText(this).apply { hint = "Backend URL"; setText(backendUrl); setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
@@ -64,9 +63,19 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     private fun openNotificationSettings() { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) }
 
-    private fun openWhatsApp() {
-        val i = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, ""); setPackage("com.whatsapp") }
-        try { startActivity(i) } catch (_: Exception) { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/"))) }
+    private fun openWhatsAppDialog() {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(30, 0, 30, 0) }
+        val number = EditText(this).apply { hint = "+countrycode number"; inputType = 3 }
+        val message = EditText(this).apply { hint = "Message"; minLines = 3; gravity = Gravity.TOP }
+        box.addView(number); box.addView(message)
+        AlertDialog.Builder(this).setTitle("WhatsApp message").setView(box).setPositiveButton("Open WhatsApp") { _, _ -> openWhatsApp(number.text.toString(), message.text.toString()) }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun openWhatsApp(number: String, message: String) {
+        val clean = number.filter { it.isDigit() }
+        val encoded = Uri.encode(message)
+        val uri = if (clean.isNotEmpty()) Uri.parse("https://wa.me/$clean?text=$encoded") else Uri.parse("https://wa.me/?text=$encoded")
+        try { startActivity(Intent(Intent.ACTION_VIEW, uri)) } catch (_: Exception) { status.text = "WhatsApp open nahi hua" }
     }
 
     private fun makeCall() {
@@ -84,8 +93,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         answer.text = "Aap: $text"
         val lower = text.lowercase(Locale.ROOT)
         if (lower.contains("youtube")) { val q = text.replace(Regex("(?i)youtube"), "").trim(); startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=" + Uri.encode(q)))); status.text = "YouTube khol diya"; speak("YouTube khol diya"); return }
-        if (lower.contains("whatsapp")) { openWhatsApp(); return }
+        if (lower.contains("whatsapp")) { parseWhatsAppVoice(text); return }
         status.text = "Barbie soch rahi hai..."; thread { askBackend(text) }
+    }
+
+    private fun parseWhatsAppVoice(text: String) {
+        val number = Regex("(?:\\+?\\d[\\d -]{7,})").find(text)?.value?.filter { it.isDigit() }.orEmpty()
+        val message = text.replace(Regex("(?i)whatsapp"), "").replace(Regex("(?:\\+?\\d[\\d -]{7,})"), "").trim().removePrefix("ko").trim()
+        openWhatsApp(number, message)
+        status.text = "WhatsApp khol diya — send aap confirm kar sakte ho"
+        speak("WhatsApp khol diya")
     }
 
     private fun askBackend(text: String) {
