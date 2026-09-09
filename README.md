@@ -11,6 +11,7 @@ Premium Android personal assistant foundation for voice-first control, Roman Urd
 - Android file picker
 - User-started foreground wake listener for **Barbie Barbie**
 - Notification listener for WhatsApp/Telegram/SMS-style notifications
+- Screen Coach capture with user consent
 - Node backend with OpenRouter free-router primary and Hugging Face fallback
 - Action detection endpoint
 - Secure server-side GitHub file writer
