@@ -91,18 +91,44 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         if (requestCode != 20 || resultCode != RESULT_OK) return
         val text = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() ?: return
         answer.text = "Aap: $text"
-        val lower = text.lowercase(Locale.ROOT)
-        if (lower.contains("youtube")) { val q = text.replace(Regex("(?i)youtube"), "").trim(); startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=" + Uri.encode(q)))); status.text = "YouTube khol diya"; speak("YouTube khol diya"); return }
-        if (lower.contains("whatsapp")) { parseWhatsAppVoice(text); return }
-        status.text = "Barbie soch rahi hai..."; thread { askBackend(text) }
+        when (val action = BarbieCommandRouter.route(text)) {
+            is BarbieCommandRouter.Action.YouTube -> {
+                startActivity(Intent(Intent.ACTION_VIEW, BarbieCommandRouter.youtubeUri(action.query)))
+                status.text = "YouTube khol diya"
+                speak("YouTube khol diya")
+            }
+            is BarbieCommandRouter.Action.WhatsApp -> {
+                openWhatsApp(action.number, action.message)
+                status.text = "WhatsApp khol diya — send aap confirm kar sakte ho"
+                speak("WhatsApp khol diya")
+            }
+            is BarbieCommandRouter.Action.Call -> {
+                dialNumber(action.number)
+            }
+            is BarbieCommandRouter.Action.WebSearch -> {
+                startActivity(Intent(Intent.ACTION_VIEW, BarbieCommandRouter.webSearchUri(action.query)))
+                status.text = "Web search khol diya"
+                speak("Search khol diya")
+            }
+            is BarbieCommandRouter.Action.Chat -> {
+                status.text = "Barbie soch rahi hai..."
+                thread { askBackend(action.text) }
+            }
+        }
     }
 
-    private fun parseWhatsAppVoice(text: String) {
-        val number = Regex("(?:\\+?\\d[\\d -]{7,})").find(text)?.value?.filter { it.isDigit() }.orEmpty()
-        val message = text.replace(Regex("(?i)whatsapp"), "").replace(Regex("(?:\\+?\\d[\\d -]{7,})"), "").trim().removePrefix("ko").trim()
-        openWhatsApp(number, message)
-        status.text = "WhatsApp khol diya — send aap confirm kar sakte ho"
-        speak("WhatsApp khol diya")
+    private fun dialNumber(number: String) {
+        val clean = number.filter { it.isDigit() || it == '+' }
+        if (clean.isBlank()) { status.text = "Number nahi mila"; return }
+        if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.CALL_PHONE), 11)
+            status.text = "Call permission chahiye"
+            return
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$clean")))
+            status.text = "Call start kar di"
+        } catch (_: Exception) { status.text = "Call start nahi hui" }
     }
 
     private fun askBackend(text: String) {
@@ -119,6 +145,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun speak(text: String) { if (::tts.isInitialized) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "barbie") }
-    override fun onInit(result: Int) { if (result == TextToSpeech.SUCCESS) tts.language = Locale.US }
+    override fun onInit(result: Int) { if (result == TextToSpeech.SUCCESS) { val ur = Locale("ur", "PK"); if (tts.isLanguageAvailable(ur) >= TextToSpeech.LANG_AVAILABLE) tts.language = ur else tts.language = Locale.US } }
     override fun onDestroy() { tts.shutdown(); super.onDestroy() }
 }
