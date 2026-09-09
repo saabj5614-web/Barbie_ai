@@ -134,14 +134,14 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val text = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() ?: return
         answer.text = "Aap: $text"
         when (val action = BarbieCommandRouter.route(text)) {
-            is BarbieCommandRouter.Action.YouTube -> { startActivity(Intent(Intent.ACTION_VIEW, BarbieCommandRouter.youtubeUri(action.query))); status.text = "YouTube khol diya"; speak("YouTube khol diya") }
-            is BarbieCommandRouter.Action.WhatsApp -> { openWhatsApp(action.number, action.message); status.text = "WhatsApp khol diya — send aap confirm kar sakte ho"; speak("WhatsApp khol diya") }
-            is BarbieCommandRouter.Action.Call -> dialNumber(action.number)
-            is BarbieCommandRouter.Action.WebSearch -> { startActivity(Intent(Intent.ACTION_VIEW, BarbieCommandRouter.webSearchUri(action.query))); status.text = "Web search khol diya"; speak("Search khol diya") }
-            BarbieCommandRouter.Action.Back -> { val ok = BarbieActionService.instance?.pressBack() == true; status.text = if (ok) "Back kar diya" else "Barbie Action Access ON karo" }
-            BarbieCommandRouter.Action.Home -> { val ok = BarbieActionService.instance?.pressHome() == true; status.text = if (ok) "Home par aa gayi" else "Barbie Action Access ON karo" }
-            is BarbieCommandRouter.Action.ClickText -> { val ok = BarbieActionService.instance?.clickText(action.text) == true; status.text = if (ok) "Tap kar diya" else "Text nahi mila ya Action Access OFF hai" }
-            is BarbieCommandRouter.Action.Chat -> { status.text = "Barbie soch rahi hai..."; thread { askBackend(action.text) } }
+            is BarbieCommandRouter.YouTube -> { startActivity(Intent(Intent.ACTION_VIEW, BarbieCommandRouter.youtubeUri(action.query))); status.text = "YouTube khol diya"; speak("YouTube khol diya") }
+            is BarbieCommandRouter.WhatsApp -> { openWhatsApp(action.number, action.message); status.text = "WhatsApp khol diya — send aap confirm kar sakte ho"; speak("WhatsApp khol diya") }
+            is BarbieCommandRouter.Call -> dialNumber(action.number)
+            is BarbieCommandRouter.WebSearch -> { startActivity(Intent(Intent.ACTION_VIEW, BarbieCommandRouter.webSearchUri(action.query))); status.text = "Web search khol diya"; speak("Search khol diya") }
+            BarbieCommandRouter.Back -> { val ok = BarbieActionService.instance?.pressBack() == true; status.text = if (ok) "Back kar diya" else "Barbie Action Access ON karo" }
+            BarbieCommandRouter.Home -> { val ok = BarbieActionService.instance?.pressHome() == true; status.text = if (ok) "Home par aa gayi" else "Barbie Action Access ON karo" }
+            is BarbieCommandRouter.ClickText -> { val ok = BarbieActionService.instance?.clickText(action.text) == true; status.text = if (ok) "Tap kar diya" else "Text nahi mila ya Action Access OFF hai" }
+            is BarbieCommandRouter.Chat -> { status.text = "Barbie soch rahi hai..."; thread { askBackend(action.text) } }
         }
     }
 
