@@ -7,12 +7,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
-    <application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@drawable/ic_barbie_launcher" android:roundIcon="@drawable/ic_barbie_launcher" android:allowBackup="false" android:supportsRtl="true">
+    <application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@drawable/barbie_dp" android:roundIcon="@drawable/barbie_dp" android:allowBackup="false" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
         <service android:name=".BarbieWakeService" android:exported="false" android:foregroundServiceType="microphone" />
         <service android:name=".BarbieScreenCoachService" android:exported="false" android:foregroundServiceType="mediaProjection" />
