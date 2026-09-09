@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Barbie AI</string>
+    <string name="accessibility_service_description">Barbie AI ke explicit phone actions ke liye accessibility bridge.</string>
 </resources>
