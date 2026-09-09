@@ -9,6 +9,7 @@ const GITHUB_OWNER = process.env.GITHUB_OWNER || '';
 const GITHUB_REPO = process.env.GITHUB_REPO || '';
 
 const system = `You are Barbie AI, a personal Android assistant. Reply in Roman Urdu by default. Do not use Hindi or Devanagari. If the user clearly speaks English, Urdu, Punjabi, Sindhi or another language, reply in that language, but never Hindi. Be concise. When the user asks for a phone action, explain what Android can do and do not claim an action happened unless the app confirms it.`;
+const screenSystem = `${system} You are also Barbie Screen Coach. When given a phone screenshot, describe only what is visibly present. If asked what to do next, give short, safe, concrete steps. Never claim you clicked, typed, sent, purchased, deleted, or changed anything unless the Android app confirms that action.`;
 
 function json(res, code, data) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, X-Barbie-Secret', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' });
@@ -16,10 +17,22 @@ function json(res, code, data) {
 }
 function authorized(req) { return !BACKEND_SECRET || req.headers['x-barbie-secret'] === BACKEND_SECRET; }
 
-async function provider(url, key, model, message) {
-  const r = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, messages: [{ role: 'system', content: system }, { role: 'user', content: message }], temperature: 0.3 }) });
+async function provider(url, key, model, message, promptSystem = system) {
+  const r = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, messages: [{ role: 'system', content: promptSystem }, { role: 'user', content: message }], temperature: 0.3 }) });
   const raw = await r.text();
   if (!r.ok) throw new Error(`provider_${r.status}`);
+  const data = JSON.parse(raw);
+  return data?.choices?.[0]?.message?.content?.trim() || '';
+}
+
+async function visionProvider(url, key, model, imageData, prompt, promptSystem = screenSystem) {
+  const content = [
+    { type: 'text', text: prompt || 'Is screenshot mein kya ho raha hai aur mujhe next kya karna chahiye?' },
+    { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageData}` } }
+  ];
+  const r = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, messages: [{ role: 'system', content: promptSystem }, { role: 'user', content }], temperature: 0.2 }) });
+  const raw = await r.text();
+  if (!r.ok) throw new Error(`vision_provider_${r.status}`);
   const data = JSON.parse(raw);
   return data?.choices?.[0]?.message?.content?.trim() || '';
 }
@@ -30,6 +43,13 @@ async function chat(message) {
   return { reply: 'AI provider abhi configured nahi hai. API key baad mein backend secret mein add ki ja sakti hai.', provider: 'none' };
 }
 
+async function analyzeScreen(imageData, prompt) {
+  if (!OPENROUTER_KEY && !HF_TOKEN) return { reply: 'Screen analysis ke liye AI provider abhi configured nahi hai.', provider: 'none' };
+  if (OPENROUTER_KEY) { try { const reply = await visionProvider('https://openrouter.ai/api/v1/chat/completions', OPENROUTER_KEY, 'openrouter/free', imageData, prompt); if (reply) return { reply, provider: 'openrouter' }; } catch {} }
+  if (HF_TOKEN) { try { const reply = await visionProvider('https://router.huggingface.co/v1/chat/completions', HF_TOKEN, 'openai/gpt-oss-120b:fastest', imageData, prompt); if (reply) return { reply, provider: 'huggingface' }; } catch {} }
+  return { reply: 'Is waqt screen image ko analyze karne wala provider available nahi hai.', provider: 'none' };
+}
+
 function detectAction(message) {
   const x = message.toLowerCase();
   if (x.includes('youtube') || x.includes('yt ')) return { type: 'youtube_search', query: message.replace(/youtube/ig, '').replace(/^yt\s*/i, '').trim() };
@@ -37,17 +57,18 @@ function detectAction(message) {
   if (x.includes('call') || x.includes('phone') || x.includes('dial')) return { type: 'call' };
   if (x.includes('file') || x.includes('document') || x.includes('folder')) return { type: 'file_picker' };
   if (x.includes('github') || x.includes('repo') || x.includes('code upload')) return { type: 'github' };
+  if (x.includes('screen') || x.includes('screenshot') || x.includes('screen par')) return { type: 'screen_coach' };
   return { type: 'chat' };
 }
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return json(res, 204, {});
-  if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true, name: 'Barbie AI', version: '2.2' });
+  if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true, name: 'Barbie AI', version: '2.4' });
   if (!authorized(req)) return json(res, 401, { error: 'unauthorized' });
   if (req.method !== 'POST') return json(res, 404, { error: 'not_found' });
 
   let body = '';
-  req.on('data', chunk => { body += chunk; if (body.length > 2000000) req.destroy(); });
+  req.on('data', chunk => { body += chunk; if (body.length > 5000000) req.destroy(); });
   req.on('end', async () => {
     try {
       const data = JSON.parse(body || '{}');
@@ -55,6 +76,14 @@ const server = http.createServer(async (req, res) => {
         const message = String(data.message || '').trim();
         if (!message) return json(res, 400, { error: 'message_required' });
         return json(res, 200, { action: detectAction(message) });
+      }
+      if (req.url === '/api/screen') {
+        const image = String(data.imageBase64 || '').replace(/^data:image\/jpeg;base64,/, '');
+        const prompt = String(data.prompt || '').trim();
+        if (!image) return json(res, 400, { error: 'image_required' });
+        if (image.length > 4500000) return json(res, 413, { error: 'image_too_large' });
+        const result = await analyzeScreen(image, prompt);
+        return json(res, 200, result);
       }
       if (req.url === '/api/github/file') {
         if (!GITHUB_OWNER || !GITHUB_REPO) return json(res, 503, { error: 'github_repo_not_configured' });
